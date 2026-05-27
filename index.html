@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RMC Sheet Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f0f4f8;color:#1a1a1a;font-size:13px}
+
+/* ── Header ── */
+header{background:linear-gradient(135deg,#1F3864,#2E75B6);color:#fff;padding:18px 32px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+header h1{font-size:20px;font-weight:700;letter-spacing:.5px}
+header p{font-size:11px;opacity:.8;margin-top:3px}
+.pill{background:rgba(255,255,255,.18);border-radius:20px;padding:3px 12px;font-size:10px;white-space:nowrap}
+
+/* ── Layout ── */
+main{max-width:1440px;margin:0 auto;padding:20px 24px 60px}
+.section{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:18px;overflow:hidden}
+.section-header{background:#1F3864;color:#fff;padding:10px 18px;font-size:12px;font-weight:700;letter-spacing:.4px;display:flex;align-items:center;justify-content:space-between}
+.section-body{padding:16px 18px}
+
+/* ── Product info grid ── */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;font-weight:700;color:#1F3864;text-transform:uppercase;letter-spacing:.3px}
+.field input,.field select{border:1px solid #ccd6e8;border-radius:4px;padding:6px 9px;font-size:12px;font-family:Arial,sans-serif;background:#fff;transition:border .15s}
+.field input:focus,.field select:focus{outline:none;border-color:#2E75B6;box-shadow:0 0 0 2px rgba(46,117,182,.15)}
+
+/* ── Tables ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+thead th{background:#1F3864;color:#fff;padding:8px 7px;text-align:center;white-space:nowrap;font-weight:700;border:1px solid #2E75B6;position:sticky;top:0}
+tbody tr:nth-child(even){background:#DEEAF1}
+tbody tr:nth-child(odd){background:#fff}
+tbody tr:hover{background:#BDD7EE}
+tbody td{padding:5px 6px;border:1px solid #d0dcea;vertical-align:middle}
+tbody td input,tbody td select{width:100%;border:none;background:transparent;font-size:11.5px;font-family:Arial,sans-serif;padding:2px 4px}
+tbody td input:focus,tbody td select:focus{outline:2px solid #2E75B6;border-radius:2px}
+.credit-row{background:#fff5f5 !important}
+.credit-row:hover{background:#ffe4e1 !important}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;font-family:Arial,sans-serif;transition:all .15s}
+.btn-blue{background:#2E75B6;color:#fff}.btn-blue:hover{background:#1F3864}
+.btn-green{background:#375623;color:#fff}.btn-green:hover{background:#1e3314}
+.btn-red{background:#C00000;color:#fff;padding:4px 9px;font-size:11px}.btn-red:hover{background:#8b0000}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Yield grid ── */
+.yield-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.yield-card{background:#FFF2CC;border:1px solid #FFD700;border-radius:6px;padding:12px;text-align:center}
+.yield-card label{font-size:10px;font-weight:700;color:#1F3864;text-transform:uppercase;display:block;margin-bottom:6px}
+.yield-card input{width:100%;border:1px solid #FFD700;border-radius:4px;padding:6px;text-align:center;font-size:18px;font-weight:700;color:#1F3864;background:transparent;font-family:Arial,sans-serif}
+.yield-card input:focus{outline:none;border-color:#2E75B6}
+.yield-card .sub{font-size:10px;color:#555;margin-top:4px}
+.yield-readonly{background:#DEEAF1;border-color:#BDD7EE}
+.yield-readonly input{color:#375623;font-size:20px}
+
+/* ── Preview card ── */
+.preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.kpi{background:#f8f9fa;border-radius:6px;padding:12px;text-align:center;border:1px solid #e2eaf4}
+.kpi .label{font-size:10px;font-weight:700;color:#2E75B6;text-transform:uppercase;margin-bottom:4px}
+.kpi .value{font-size:18px;font-weight:700;color:#1F3864}
+.kpi-green{background:#EBF4EA;border-color:#375623}.kpi-green .value{color:#375623}
+.kpi-red{background:#fff5f5;border-color:#C00000}.kpi-red .value{color:#C00000}
+.kpi-gold{background:#FFF2CC;border-color:#FFD700}
+
+/* ── Generate bar ── */
+.gen-bar{position:fixed;bottom:0;left:0;right:0;background:#1F3864;padding:10px 32px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 -2px 10px rgba(0,0,0,.2);z-index:100}
+.gen-bar span{color:#BDD7EE;font-size:11px}
+#genBtn{font-size:14px;padding:10px 28px}
+#spinner{display:none;width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Toast ── */
+#toast{position:fixed;top:20px;right:24px;background:#375623;color:#fff;padding:10px 20px;border-radius:6px;font-size:12px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.2);opacity:0;transform:translateY(-10px);transition:all .3s;pointer-events:none;z-index:200}
+#toast.show{opacity:1;transform:translateY(0)}
+
+/* ── Misc ── */
+.row-num{color:#999;font-weight:700;min-width:28px;text-align:center}
+.required{color:#C00000}
+hr.divider{border:none;border-top:1px solid #e2eaf4;margin:12px 0}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>RMC Sheet Generator</h1>
+    <p>Pharmaceutical Raw Material Cost Sheet &nbsp;·&nbsp; Fill the form → Download Excel</p>
+  </div>
+  <span class="pill">Multi-stage API / Intermediate</span>
+</header>
+
+<main>
+
+<!-- ── 1. Product Information ─────────────────────────────────────────── -->
+<div class="section">
+  <div class="section-header">1 &nbsp;·&nbsp; Product Information</div>
+  <div class="section-body">
+    <div class="info-grid">
+      <div class="field"><label>Product Name / API <span class="required">*</span></label><input id="productName" placeholder="e.g. Atorvastatin Calcium"></div>
+      <div class="field"><label>Batch Size <span class="required">*</span></label><input id="batchSize" placeholder="e.g. 100 kg"></div>
+      <div class="field"><label>Stage</label><input id="stage" placeholder="e.g. Stage 2 / Final API"></div>
+      <div class="field"><label>Document No.</label><input id="docNo" placeholder="RMC-XXX-001" value="RMC-XXX-001"></div>
+      <div class="field"><label>Version</label><input id="version" placeholder="00" value="00"></div>
+      <div class="field"><label>Effective Date</label><input id="effectiveDate" type="date"></div>
+      <div class="field"><label>BOM / MFR Reference</label><input id="bomRef" placeholder="MFR-XXX-001" value="MFR-XXX-001"></div>
+      <div class="field"><label>Currency</label>
+        <select id="currency"><option>INR (₹)</option><option>USD ($)</option><option>EUR (€)</option></select>
+      </div>
+      <div class="field"><label>Exchange Rate (1 USD = ₹)</label><input id="exRate" type="number" value="83.50" step="0.01"></div>
+      <div class="field"><label>Price Validity Date</label><input id="priceDate" type="date"></div>
+      <div class="field"><label>Prepared By</label><input id="preparedBy" placeholder="Name"></div>
+      <div class="field"><label>Reviewed By</label><input id="reviewedBy" placeholder="Name"></div>
+      <div class="field"><label>Approved By</label><input id="approvedBy" placeholder="Name"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 2. Raw Materials ───────────────────────────────────────────────── -->
+<div class="section">
+  <div class="section-header">
+    2 &nbsp;·&nbsp; Raw Materials
+    <button class="btn btn-blue btn-sm" onclick="addMaterialRow()">+ Add Row</button>
+  </div>
+  <div class="section-body" style="padding:0">
+    <div class="table-wrap">
+      <table id="rmTable">
+        <thead>
+          <tr>
+            <th style="width:34px">#</th>
+            <th style="min-width:110px">Material Code</th>
+            <th style="min-width:230px">Raw Material Name</th>
+            <th style="min-width:130px">Category</th>
+            <th style="min-width:120px">Grade / Spec</th>
+            <th style="min-width:90px">Theo. Qty</th>
+            <th style="min-width:80px">Yield %</th>
+            <th style="min-width:75px">Actual Qty</th>
+            <th style="min-width:60px">UOM</th>
+            <th style="min-width:110px">Unit Rate (₹)</th>
+            <th style="min-width:120px">Total Cost (₹)</th>
+            <th style="min-width:100px">Source</th>
+            <th style="min-width:110px">Basis</th>
+            <th style="min-width:110px">Vendor Status</th>
+            <th style="min-width:180px">Remarks</th>
+            <th style="width:36px"></th>
+          </tr>
+        </thead>
+        <tbody id="rmBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── 3. Solvent Recovery Credits ───────────────────────────────────── -->
+<div class="section">
+  <div class="section-header">
+    3 &nbsp;·&nbsp; Solvent Recovery Credits &nbsp;<span style="font-weight:400;opacity:.8">(deducted from gross RM cost)</span>
+    <button class="btn btn-blue btn-sm" onclick="addCreditRow()">+ Add Row</button>
+  </div>
+  <div class="section-body" style="padding:0">
+    <div class="table-wrap">
+      <table id="creditTable">
+        <thead>
+          <tr>
+            <th style="width:34px">#</th>
+            <th style="min-width:110px">Code</th>
+            <th style="min-width:200px">Solvent / Material</th>
+            <th style="min-width:100px">Recovered Qty</th>
+            <th style="min-width:80px">UOM</th>
+            <th style="min-width:100px">Recovery %</th>
+            <th style="min-width:100px">Net Qty</th>
+            <th style="min-width:110px">Unit Rate (₹)</th>
+            <th style="min-width:130px">Credit Amount (₹)</th>
+            <th style="min-width:180px">Remarks</th>
+            <th style="width:36px"></th>
+          </tr>
+        </thead>
+        <tbody id="creditBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── 4. Yield Summary ───────────────────────────────────────────────── -->
+<div class="section">
+  <div class="section-header">4 &nbsp;·&nbsp; Yield Summary</div>
+  <div class="section-body">
+    <div class="yield-grid">
+      <div class="yield-card">
+        <label>Theoretical Batch Output (kg)</label>
+        <input id="theoOutput" type="number" value="75" min="0" step="0.01" oninput="recalc()">
+        <div class="sub">From MFR / validated process</div>
+      </div>
+      <div class="yield-card">
+        <label>Stage 1 Yield (%)</label>
+        <input id="yld1" type="number" value="96" min="0" max="100" step="0.1" oninput="recalc()">
+        <div class="sub">%</div>
+      </div>
+      <div class="yield-card">
+        <label>Stage 2 Yield (%)</label>
+        <input id="yld2" type="number" value="94" min="0" max="100" step="0.1" oninput="recalc()">
+        <div class="sub">%</div>
+      </div>
+      <div class="yield-card">
+        <label>Final Stage Yield (%)</label>
+        <input id="yld3" type="number" value="95" min="0" max="100" step="0.1" oninput="recalc()">
+        <div class="sub">%</div>
+      </div>
+      <div class="yield-card yield-readonly">
+        <label>Overall Yield (%)</label>
+        <input id="overallYld" readonly>
+        <div class="sub">= S1 × S2 × Final</div>
+      </div>
+      <div class="yield-card yield-readonly">
+        <label>Actual Expected Output (kg)</label>
+        <input id="actualOutput" readonly>
+        <div class="sub">= Theoretical × Overall Yield</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 5. Live Preview ───────────────────────────────────────────────── -->
+<div class="section">
+  <div class="section-header">5 &nbsp;·&nbsp; Cost Preview</div>
+  <div class="section-body">
+    <div class="preview-grid">
+      <div class="kpi"><div class="label">Materials</div><div class="value" id="pv-count">0</div></div>
+      <div class="kpi"><div class="label">Gross RM Cost</div><div class="value" id="pv-gross">₹0</div></div>
+      <div class="kpi kpi-red"><div class="label">Recovery Credits</div><div class="value" id="pv-credits">₹0</div></div>
+      <div class="kpi kpi-green"><div class="label">Net RM Cost</div><div class="value" id="pv-net">₹0</div></div>
+      <div class="kpi kpi-gold"><div class="label">RM Cost / kg API</div><div class="value" id="pv-cpk">₹0</div></div>
+      <div class="kpi"><div class="label">Overall Yield</div><div class="value" id="pv-yield">0%</div></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- ── Generate Bar ── -->
+<div class="gen-bar">
+  <span>Fill in the form above, then download your formatted RMC Sheet.</span>
+  <button class="btn btn-green" id="genBtn" onclick="generateExcel()">
+    <div id="spinner"></div>
+    ⬇ Generate &amp; Download Excel
+  </button>
+</div>
+
+<div id="toast">✓ Excel downloaded!</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+//  Default sample data
+// ══════════════════════════════════════════════════════════════════════════════
+const DEFAULT_MATERIALS = [
+  ['RM-001','Starting Material A (KSM)','KSM','USP',120,98,'kg',45000,'Imported','Commercial','Approved','Primary KSM, imported; USD rate applied'],
+  ['RM-002','Reagent B – Coupling Agent','Reagent','GMP',85,97,'kg',12500,'Indigenous','Commercial','Approved','Local vendor'],
+  ['RM-003','Solvent C – Methanol','Solvent','Technical',500,100,'L',65,'Indigenous','Commercial','Approved','Recyclable; recovery credit applied'],
+  ['RM-004','Catalyst D – Pd/C (5%)','Catalyst','GMP',2.5,95,'kg',185000,'Imported','Pilot','Approved','Amortised over 5 reuse cycles'],
+  ['RM-005','Reagent E – K₂CO₃','Reagent','Technical',45,100,'kg',850,'Indigenous','Commercial','Approved',''],
+  ['RM-006','Solvent F – Ethyl Acetate','Solvent','Technical',800,100,'L',120,'Indigenous','Commercial','Approved','Recyclable; recovery credit applied'],
+  ['RM-007','Reagent G – Acylating Agent','Reagent','GMP',60,98,'kg',28000,'Imported','Commercial','Approved','USD rate applied'],
+  ['RM-008','Solvent G – DCM','Solvent','Technical',600,100,'L',95,'Indigenous','Commercial','Approved','Recyclable; recovery credit applied'],
+  ['RM-009','Solvent H – IPA','Solvent','Technical',400,100,'L',110,'Indigenous','Commercial','Approved','Recyclable; recovery credit applied'],
+  ['RM-010','Processing Aid – Activated Carbon','Processing Aid','Technical',5,100,'kg',3200,'Indigenous','Commercial','Approved',''],
+  ['RM-011','Purified Water','Reagent','USP Purified',200,100,'L',15,'Indigenous','Commercial','Approved','Utility cost basis'],
+];
+
+const DEFAULT_CREDITS = [
+  ['RC-001','Methanol Recovery',    400,'L',85,'','',65,'85% recovery efficiency'],
+  ['RC-002','Ethyl Acetate Recovery',640,'L',80,'','',120,'80% recovery efficiency'],
+  ['RC-003','DCM Recovery',          480,'L',75,'','',95,'75% recovery efficiency'],
+  ['RC-004','IPA Recovery',          320,'L',82,'','',110,'82% recovery efficiency'],
+];
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Table management
+// ══════════════════════════════════════════════════════════════════════════════
+const CATEGORIES  = ['KSM','API','Intermediate','Solvent','Reagent','Catalyst','Processing Aid'];
+const GRADES      = ['USP','BP','IP','EP','GMP','Technical','In-house GMP','USP Purified','Analytical'];
+const UOM_OPTS    = ['kg','L','g','mL'];
+const SOURCE_OPTS = ['Indigenous','Imported','In-house'];
+const BASIS_OPTS  = ['Commercial','Pilot','Lab'];
+const STATUS_OPTS = ['Approved','Provisional','Alternate'];
+
+function sel(opts, val) {
+  return `<select onchange="recalc()">${opts.map(o=>`<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
+}
+
+let rmCount = 0;
+function addMaterialRow(d) {
+  rmCount++;
+  const [code='',name='',cat='Reagent',grade='Technical',theo='',yld=100,uom='kg',rate='',src='Indigenous',basis='Commercial',vstatus='Approved',rmk=''] = d||[];
+  const tr = document.createElement('tr');
+  tr.dataset.id = rmCount;
+  tr.innerHTML = `
+    <td class="row-num">${rmCount}</td>
+    <td><input value="${code}" oninput="recalc()" placeholder="RM-001"></td>
+    <td><input value="${name}" oninput="recalc()" placeholder="Material name" style="min-width:210px"></td>
+    <td>${sel(CATEGORIES,cat)}</td>
+    <td>${sel(GRADES,grade)}</td>
+    <td><input type="number" value="${theo}" min="0" step="0.001" oninput="recalc()" placeholder="0.00" style="width:80px"></td>
+    <td><input type="number" value="${yld}" min="0" max="100" step="0.1" oninput="recalc()" style="width:68px"></td>
+    <td class="actual-qty" style="color:#375623;font-weight:700;text-align:center"></td>
+    <td>${sel(UOM_OPTS,uom)}</td>
+    <td><input type="number" value="${rate}" min="0" step="0.01" oninput="recalc()" placeholder="0.00" style="width:95px"></td>
+    <td class="total-cost" style="color:#1F3864;font-weight:700;text-align:center"></td>
+    <td>${sel(SOURCE_OPTS,src)}</td>
+    <td>${sel(BASIS_OPTS,basis)}</td>
+    <td>${sel(STATUS_OPTS,vstatus)}</td>
+    <td><input value="${rmk}" placeholder="Notes…" style="min-width:160px"></td>
+    <td><button class="btn btn-red" onclick="deleteRow(this,'rmBody')">✕</button></td>
+  `;
+  document.getElementById('rmBody').appendChild(tr);
+  recalc();
+}
+
+let crCount = 0;
+function addCreditRow(d) {
+  crCount++;
+  const [code='',name='',recQty='',uom='L',recPct=80,_nq='',_cr='',rate='',rmk=''] = d||[];
+  const tr = document.createElement('tr');
+  tr.dataset.id = crCount;
+  tr.className = 'credit-row';
+  tr.innerHTML = `
+    <td class="row-num">${crCount}</td>
+    <td><input value="${code}" placeholder="RC-001"></td>
+    <td><input value="${name}" placeholder="Methanol Recovery" style="min-width:180px"></td>
+    <td><input type="number" value="${recQty}" min="0" step="0.01" oninput="recalc()" placeholder="0.00" style="width:88px"></td>
+    <td>${sel(UOM_OPTS,uom)}</td>
+    <td><input type="number" value="${recPct}" min="0" max="100" step="0.1" oninput="recalc()" style="width:72px"></td>
+    <td class="net-qty" style="color:#C00000;font-weight:700;text-align:center"></td>
+    <td><input type="number" value="${rate}" min="0" step="0.01" oninput="recalc()" placeholder="0.00" style="width:88px"></td>
+    <td class="credit-amt" style="color:#C00000;font-weight:700;text-align:center"></td>
+    <td><input value="${rmk}" placeholder="Recovery efficiency note…" style="min-width:160px"></td>
+    <td><button class="btn btn-red" onclick="deleteRow(this,'creditBody')">✕</button></td>
+  `;
+  document.getElementById('creditBody').appendChild(tr);
+  recalc();
+}
+
+function deleteRow(btn, tbodyId) {
+  btn.closest('tr').remove();
+  reNumber(tbodyId === 'rmBody' ? 'rmBody' : 'creditBody');
+  recalc();
+}
+
+function reNumber(tbodyId) {
+  document.querySelectorAll(`#${tbodyId} tr`).forEach((tr, i) => {
+    tr.querySelector('.row-num').textContent = i + 1;
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Live recalculation
+// ══════════════════════════════════════════════════════════════════════════════
+const fmt = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+function recalc() {
+  let gross = 0;
+  document.querySelectorAll('#rmBody tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input[type=number]');
+    const theo = parseFloat(inputs[0].value) || 0;
+    const yld  = parseFloat(inputs[1].value) || 100;
+    const rate = parseFloat(inputs[2].value) || 0;
+    const actualQty = yld > 0 ? theo / (yld / 100) : 0;
+    const cost = actualQty * rate;
+    tr.querySelector('.actual-qty').textContent = actualQty.toFixed(3);
+    tr.querySelector('.total-cost').textContent = fmt(cost);
+    gross += cost;
+  });
+
+  let credits = 0;
+  document.querySelectorAll('#creditBody tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input[type=number]');
+    const recQty = parseFloat(inputs[0].value) || 0;
+    const recPct = parseFloat(inputs[1].value) || 0;
+    const rate   = parseFloat(inputs[2].value) || 0;
+    const netQty = recQty * (recPct / 100);
+    const credit = netQty * rate;
+    tr.querySelector('.net-qty').textContent = netQty.toFixed(3);
+    tr.querySelector('.credit-amt').textContent = '-' + fmt(credit);
+    credits += credit;
+  });
+
+  const net = gross - credits;
+  const y1 = parseFloat(document.getElementById('yld1').value) || 0;
+  const y2 = parseFloat(document.getElementById('yld2').value) || 0;
+  const y3 = parseFloat(document.getElementById('yld3').value) || 0;
+  const overallYld = (y1/100) * (y2/100) * (y3/100) * 100;
+  const theoOut = parseFloat(document.getElementById('theoOutput').value) || 0;
+  const actualOut = theoOut * overallYld / 100;
+  const cpk = actualOut > 0 ? net / actualOut : 0;
+
+  document.getElementById('overallYld').value  = overallYld.toFixed(2) + ' %';
+  document.getElementById('actualOutput').value = actualOut.toFixed(2) + ' kg';
+
+  document.getElementById('pv-count').textContent   = document.querySelectorAll('#rmBody tr').length;
+  document.getElementById('pv-gross').textContent   = fmt(gross);
+  document.getElementById('pv-credits').textContent = '- ' + fmt(credits);
+  document.getElementById('pv-net').textContent     = fmt(net);
+  document.getElementById('pv-cpk').textContent     = fmt(cpk);
+  document.getElementById('pv-yield').textContent   = overallYld.toFixed(2) + '%';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Excel generation (ExcelJS)
+// ══════════════════════════════════════════════════════════════════════════════
+const C = {
+  DARK_BLUE:'FF1F3864', MED_BLUE:'FF2E75B6', LIGHT_BLUE:'FFBDD7EE', PALE_BLUE:'FFDEEAF1',
+  GOLD:'FFFFD700', LIGHT_GOLD:'FFFFF2CC', GREEN:'FF375623', RED:'FFC00000',
+  WHITE:'FFFFFFFF', LIGHT_GREY:'FFF2F2F2', NAVY2:'FF2F5496', AMBER:'FFED7D31', GREEN_TAB:'FF70AD47'
+};
+const fillSolid = a => ({type:'pattern',pattern:'solid',fgColor:{argb:a}});
+const fnt = (o={}) => ({name:'Arial',size:o.size||10,bold:!!o.bold,italic:!!o.italic,color:{argb:o.color||'FF000000'}});
+const bdr = (s='thin') => { const x={style:s}; return {top:x,left:x,bottom:x,right:x}; };
+const aln = (h='center',w=true) => ({horizontal:h,vertical:'middle',wrapText:w});
+const INR='₹#,##0.00;(₹#,##0.00);"-"', PCT='0.00%;-0.00%;"-"', NUM2='#,##0.00;(#,##0.00);"-"';
+
+function mergeRow(ws, row, text, fillArgb, fontSize=10, bold=true, height=18) {
+  ws.getRow(row).height = height;
+  ws.mergeCells(row, 1, row, 17);
+  const c = ws.getCell(row, 1);
+  c.value = text; c.font = fnt({bold,size:fontSize,color:C.WHITE});
+  c.fill = fillSolid(fillArgb); c.alignment = aln('center'); c.border = bdr();
+}
+
+function subHdr(ws, row, label, fillArgb=C.MED_BLUE) {
+  ws.getRow(row).height = 18;
+  ws.mergeCells(row, 1, row, 17);
+  const c = ws.getCell(row, 1);
+  c.value = '  ' + label; c.font = fnt({bold:true,size:10,color:C.WHITE});
+  c.fill = fillSolid(fillArgb); c.alignment = aln('left'); c.border = bdr();
+}
+
+async function generateExcel() {
+  const btn = document.getElementById('genBtn');
+  const spin = document.getElementById('spinner');
+  btn.disabled = true; spin.style.display = 'block';
+
+  await new Promise(r => setTimeout(r, 50)); // let UI update
+
+  try {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'RMC Sheet Generator';
+
+    // ── Collect form data ──────────────────────────────────────────────
+    const productName = document.getElementById('productName').value || '[Product Name]';
+    const batchSize   = document.getElementById('batchSize').value   || '[Batch Size]';
+    const stage       = document.getElementById('stage').value       || '[Stage]';
+    const docNo       = document.getElementById('docNo').value       || 'RMC-XXX-001';
+    const version     = document.getElementById('version').value     || '00';
+    const effDate     = document.getElementById('effectiveDate').value || 'DD-MMM-YYYY';
+    const bomRef      = document.getElementById('bomRef').value      || 'MFR-XXX-001';
+    const currency    = document.getElementById('currency').value    || 'INR (₹)';
+    const exRate      = document.getElementById('exRate').value      || '83.50';
+    const priceDate   = document.getElementById('priceDate').value   || 'DD-MMM-YYYY';
+    const prepBy      = document.getElementById('preparedBy').value  || '_______________';
+    const revBy       = document.getElementById('reviewedBy').value  || '_______________';
+    const appBy       = document.getElementById('approvedBy').value  || '_______________';
+    const theoOut     = parseFloat(document.getElementById('theoOutput').value) || 75;
+    const y1 = parseFloat(document.getElementById('yld1').value) || 96;
+    const y2 = parseFloat(document.getElementById('yld2').value) || 94;
+    const y3 = parseFloat(document.getElementById('yld3').value) || 95;
+    const overallYld  = (y1/100)*(y2/100)*(y3/100)*100;
+    const actualOut   = theoOut * overallYld / 100;
+
+    // Collect materials
+    const materials = [];
+    document.querySelectorAll('#rmBody tr').forEach((tr,i) => {
+      const inputs = tr.querySelectorAll('input');
+      const sels   = tr.querySelectorAll('select');
+      const theo   = parseFloat(tr.querySelectorAll('input[type=number]')[0].value) || 0;
+      const yld    = parseFloat(tr.querySelectorAll('input[type=number]')[1].value) || 100;
+      const rate   = parseFloat(tr.querySelectorAll('input[type=number]')[2].value) || 0;
+      materials.push({
+        sno: i+1, code: inputs[0].value, name: inputs[1].value,
+        cat: sels[0].value, grade: sels[1].value,
+        theo, yld: yld/100, uom: sels[2].value, rate,
+        source: sels[3].value, basis: sels[4].value, vstatus: sels[5].value,
+        remark: inputs[4].value,
+      });
+    });
+
+    // Collect credits
+    const credits = [];
+    document.querySelectorAll('#creditBody tr').forEach((tr,i) => {
+      const inputs = tr.querySelectorAll('input');
+      const sel    = tr.querySelector('select');
+      const recQty = parseFloat(tr.querySelectorAll('input[type=number]')[0].value) || 0;
+      const recPct = parseFloat(tr.querySelectorAll('input[type=number]')[1].value) / 100 || 0;
+      const rate   = parseFloat(tr.querySelectorAll('input[type=number]')[2].value) || 0;
+      credits.push({
+        sno: i+1, code: inputs[0].value, name: inputs[1].value,
+        recQty, uom: sel.value, recPct, rate, remark: inputs[4].value,
+      });
+    });
+
+    // ══ SHEET 1 – RMC Sheet ════════════════════════════════════════════
+    const ws = wb.addWorksheet('RMC Sheet', {properties:{tabColor:{argb:'FF2E75B6'}}});
+    ws.views = [{state:'frozen',xSplit:0,ySplit:9,activeCell:'A10'}];
+    [6,16,32,16,18,14,14,14,6,16,12,18,16,12,18,18,30].forEach((w,i)=>ws.getColumn(i+1).width=w);
+
+    // Title
+    ws.getRow(1).height = 32;
+    mergeRow(ws,1,'RAW MATERIAL COST SHEET (RMC)',C.DARK_BLUE,16,true,32);
+
+    // Info rows
+    const fmtDate = d => d || 'DD-MMM-YYYY';
+    const infoRows = [
+      [2,`Product Name / API:  ${productName}     |     Batch Size:  ${batchSize}     |     Stage:  ${stage}`, C.MED_BLUE],
+      [3,`Document No.:  ${docNo}     |     Version:  ${version}     |     Effective Date:  ${fmtDate(effDate)}`, C.NAVY2],
+      [4,`Prepared By:  ${prepBy}     |     Reviewed By:  ${revBy}     |     Approved By:  ${appBy}`, C.MED_BLUE],
+      [5,`BOM Reference:  ${bomRef}     |     Currency:  ${currency}     |     Exchange Rate:  1 USD = ₹${exRate}`, C.NAVY2],
+      [6,`Price Validity Date:  ${fmtDate(priceDate)}     |     Yield Basis:  Theoretical/Actual     |     Recovery Credit Applied:  ${credits.length>0?'Yes':'No'}`, C.MED_BLUE],
+      [7,`Assumptions: Yield % from process data | Recovery % from plant data | Rates from approved vendor quotations`, C.NAVY2],
+    ];
+    infoRows.forEach(([r,text,clr])=>{
+      ws.getRow(r).height=15;
+      ws.mergeCells(r,1,r,17);
+      const c=ws.getCell(r,1);
+      c.value=text; c.font=fnt({size:9,color:C.WHITE});
+      c.fill=fillSolid(clr); c.alignment=aln('left'); c.border=bdr();
+    });
+    ws.getRow(8).height = 5;
+
+    // Column headers
+    const hdrs=['S. No.','Material Code /\nItem Code','Raw Material Name\n(API/KSM/Intermediate/Solvent/Reagent/Catalyst)',
+      'Category','Grade /\nSpecification','Theoretical Qty\nper Batch','Input Factor /\nYield (%)','Actual Qty\nRequired',
+      'UOM','Unit Rate\n(₹/kg or ₹/L)','Source\n(Indig./Imported)','Total Cost\nper Batch (₹)',
+      'Cost per kg\nof Output (₹)','% Contribution\nto Total RM','Basis of\nEstimate','Vendor Approval\nStatus','Remarks'];
+    ws.getRow(9).height=40;
+    hdrs.forEach((h,i)=>{
+      const c=ws.getCell(9,i+1);
+      c.value=h; c.font=fnt({bold:true,size:9,color:C.WHITE});
+      c.fill=fillSolid(C.DARK_BLUE); c.alignment=aln('center'); c.border=bdr();
+    });
+
+    // Sub-headers + data rows
+    let curRow = 10;
+    const MAT_HEADER = curRow++;
+    subHdr(ws, MAT_HEADER, `RAW MATERIALS  (${materials.length} item${materials.length!==1?'s':''})`, C.MED_BLUE);
+
+    const dataRows = [];
+    let grossCalc = 0;
+    materials.forEach((m,i)=>{
+      const row = curRow++;
+      dataRows.push(row);
+      const altFill = row%2===0?C.LIGHT_BLUE:C.PALE_BLUE;
+      ws.getRow(row).height=18;
+      const actualQty = m.yld>0 ? m.theo/m.yld : 0;
+      const totalCost = actualQty * m.rate;
+      grossCalc += totalCost;
+
+      const vals=[m.sno,m.code,m.name,m.cat,m.grade,m.theo,m.yld,null,m.uom,m.rate,m.source,null,null,null,m.basis,m.vstatus,m.remark];
+      vals.forEach((v,ci)=>{
+        const c=ws.getCell(row,ci+1);
+        if(v!==null) c.value=v;
+        c.fill=fillSolid(altFill); c.border=bdr();
+        c.font=fnt({size:9}); c.alignment=(ci===2||ci===16)?aln('left'):aln('center');
+      });
+      ws.getCell(row,7).numFmt=PCT;
+      ws.getCell(row,6).numFmt=NUM2;
+      ws.getCell(row,10).numFmt=INR;
+
+      // H = Actual Qty
+      const h=ws.getCell(row,8);
+      h.value={formula:`IFERROR(F${row}/G${row},0)`,result:actualQty};
+      h.numFmt=NUM2; h.fill=fillSolid(altFill); h.border=bdr(); h.font=fnt({size:9}); h.alignment=aln('center');
+
+      // L = Total Cost
+      const l=ws.getCell(row,12);
+      l.value={formula:`H${row}*J${row}`,result:totalCost};
+      l.numFmt=INR; l.fill=fillSolid(altFill); l.border=bdr(); l.font=fnt({size:9}); l.alignment=aln('center');
+
+      // M = Cost per kg
+      const m2=ws.getCell(row,13);
+      m2.value={formula:`IFERROR(L${row}/F_OUT,0)`};
+      m2.numFmt=INR; m2.fill=fillSolid(altFill); m2.border=bdr(); m2.font=fnt({size:9}); m2.alignment=aln('center');
+
+      // N = % contribution
+      const n=ws.getCell(row,14);
+      n.value={formula:`IFERROR(L${row}/GROSS,0)`};
+      n.numFmt=PCT; n.fill=fillSolid(altFill); n.border=bdr(); n.font=fnt({size:9}); n.alignment=aln('center');
+    });
+
+    // Spacer
+    ws.getRow(curRow++).height = 5;
+
+    // Recovery credits
+    const CREDIT_HDR_ROW = curRow++;
+    subHdr(ws, CREDIT_HDR_ROW, 'SOLVENT RECOVERY CREDITS  (deducted from Gross RM Cost)', C.NAVY2);
+
+    const creditRows2 = [];
+    let creditsCalc = 0;
+    credits.forEach((cr,i)=>{
+      const row = curRow++;
+      creditRows2.push(row);
+      ws.getRow(row).height=18;
+      const netQty = cr.recQty * cr.recPct;
+      const creditAmt = netQty * cr.rate;
+      creditsCalc += creditAmt;
+
+      const vals=[cr.sno,cr.code,cr.name,'Recovery Credit','—',cr.recQty,cr.recPct,null,cr.uom,cr.rate,'—',null,null,null,'—','—',cr.remark];
+      vals.forEach((v,ci)=>{
+        const c=ws.getCell(row,ci+1);
+        if(v!==null) c.value=v;
+        c.fill=fillSolid('FFFFE4E1'); c.border=bdr();
+        c.font=fnt({size:9,color:C.RED,italic:true}); c.alignment=(ci===2||ci===16)?aln('left'):aln('center');
+      });
+      ws.getCell(row,7).numFmt=PCT;
+      ws.getCell(row,6).numFmt=NUM2;
+      ws.getCell(row,10).numFmt=INR;
+
+      const h=ws.getCell(row,8);
+      h.value={formula:`F${row}*G${row}`,result:netQty};
+      h.numFmt=NUM2; h.fill=fillSolid('FFFFE4E1'); h.border=bdr();
+      h.font=fnt({size:9,color:C.RED,italic:true}); h.alignment=aln('center');
+
+      const l=ws.getCell(row,12);
+      l.value={formula:`-H${row}*J${row}`,result:-creditAmt};
+      l.numFmt=INR; l.fill=fillSolid('FFFFE4E1'); l.border=bdr();
+      l.font=fnt({size:9,color:C.RED,italic:true}); l.alignment=aln('center');
+
+      ws.getCell(row,13).fill=fillSolid('FFFFE4E1'); ws.getCell(row,13).border=bdr();
+      ws.getCell(row,14).fill=fillSolid('FFFFE4E1'); ws.getCell(row,14).border=bdr();
+    });
+
+    // Totals
+    ws.getRow(curRow++).height = 5;
+    const GROSS_ROW = curRow++;
+    const CRED_ROW  = curRow++;
+    const NET_ROW   = curRow + 1;
+    ws.getRow(curRow++).height = 5;
+
+    const grossFormula = dataRows.length ? dataRows.map(r=>`L${r}`).join('+') : '0';
+    const credFormula  = creditRows2.length ? creditRows2.map(r=>`L${r}`).join('+') : '0';
+
+    function writeTotRow(row,label,formula,result,fillArgb,valArgb,color=C.WHITE,h=20) {
+      ws.getRow(row).height=h;
+      ws.mergeCells(row,1,row,11);
+      for(let c=1;c<=17;c++){ws.getCell(row,c).fill=fillSolid(fillArgb);ws.getCell(row,c).border=bdr();}
+      const lc=ws.getCell(row,1);
+      lc.value=label; lc.font=fnt({bold:true,size:10,color});
+      lc.fill=fillSolid(fillArgb); lc.alignment=aln('right');
+      const vc=ws.getCell(row,12);
+      vc.value={formula,result}; vc.numFmt=INR;
+      vc.font=fnt({bold:true,size:10,color}); vc.fill=fillSolid(valArgb); vc.border=bdr(); vc.alignment=aln('center');
+      ws.mergeCells(row,12,row,17);
+    }
+
+    writeTotRow(GROSS_ROW,'GROSS RAW MATERIAL COST  (before recovery credits)',
+      grossFormula, grossCalc, C.LIGHT_BLUE, C.LIGHT_BLUE,'FF1F3864');
+    writeTotRow(CRED_ROW,'TOTAL SOLVENT RECOVERY CREDITS',
+      credFormula, -creditsCalc,'FFFFE4E1','FFFFE4E1', C.RED);
+    writeTotRow(NET_ROW,'NET RAW MATERIAL COST  (Gross + Credits)',
+      `${GROSS_ROW===NET_ROW?0:GROSS_ROW}+0`, grossCalc-creditsCalc, C.GREEN, C.GREEN, C.WHITE, 24);
+    // Fix NET formula
+    ws.getCell(NET_ROW,12).value = {formula:`L${GROSS_ROW}+L${CRED_ROW}`,result:grossCalc-creditsCalc};
+
+    // Yield Summary
+    curRow = NET_ROW + 2;
+    ws.getRow(curRow).height=8; curRow++;
+    subHdr(ws,curRow++,'YIELD SUMMARY');
+
+    const yItems=[
+      ['Theoretical Batch Output (kg API)', theoOut,   NUM2, false],
+      ['Stage 1 Yield (%)',                 y1/100,    PCT,  true],
+      ['Stage 2 Yield (%)',                 y2/100,    PCT,  true],
+      ['Final Stage Yield (%)',             y3/100,    PCT,  true],
+      ['Overall Yield (%) = S1 × S2 × Final', overallYld/100, PCT, true],
+      ['Actual Expected Output (kg)',       actualOut, NUM2, false],
+    ];
+    const yRow0 = curRow;
+    yItems.forEach(([label,val,fmt2])=>{
+      const row=curRow++;
+      ws.getRow(row).height=18;
+      ws.mergeCells(row,1,row,9);
+      for(let c=1;c<=17;c++){ws.getCell(row,c).fill=fillSolid(C.PALE_BLUE);ws.getCell(row,c).border=bdr();}
+      const lc=ws.getCell(row,1); lc.value=label; lc.font=fnt({bold:true,size:9}); lc.alignment=aln('left');
+      const vc=ws.getCell(row,10); vc.value=val; vc.numFmt=fmt2;
+      vc.font=fnt({size:9,color:'FF0000FF'}); vc.fill=fillSolid(C.LIGHT_GOLD); vc.border=bdr(); vc.alignment=aln('center');
+      ws.mergeCells(row,10,row,17);
+    });
+
+    // Cost Summary
+    ws.getRow(curRow).height=8; curRow++;
+    subHdr(ws,curRow++,'COST SUMMARY');
+
+    const net = grossCalc - creditsCalc;
+    const cpk = actualOut > 0 ? net/actualOut : 0;
+    const summItems=[
+      ['Total Gross RM Cost (₹)',                 grossCalc],
+      ['Total Solvent Recovery Credits (₹)',      -creditsCalc],
+      ['Net Raw Material Cost (₹)',               net],
+      ['Batch Output – Actual Expected (kg API)', actualOut],
+      ['RM Cost per kg of API (₹/kg)',            cpk],
+    ];
+    summItems.forEach(([label,val])=>{
+      const row=curRow++;
+      ws.getRow(row).height=18;
+      for(let c=1;c<=17;c++){ws.getCell(row,c).fill=fillSolid(C.LIGHT_GOLD);ws.getCell(row,c).border=bdr();}
+      ws.mergeCells(row,1,row,9);
+      const lc=ws.getCell(row,1); lc.value=label; lc.font=fnt({bold:true,size:9}); lc.alignment=aln('left');
+      const vc=ws.getCell(row,10); vc.value=val; vc.numFmt=INR;
+      vc.font=fnt({bold:true,size:9}); vc.fill=fillSolid(C.GOLD); vc.border=bdr(); vc.alignment=aln('center');
+      ws.mergeCells(row,10,row,17);
+    });
+
+    // Assumptions
+    ws.getRow(curRow).height=8; curRow++;
+    subHdr(ws,curRow++,'ASSUMPTIONS & NOTES');
+    const assumptions=[
+      '1.  Yield % values based on process data. Update with commercial batch data when available.',
+      '2.  Solvent recovery % based on plant solvent recovery system efficiency data.',
+      `3.  USD / INR exchange rate: 1 USD = ₹${exRate}. Update for each cost revision cycle.`,
+      '4.  Unit rates sourced from approved vendor quotations. Review on renewal.',
+      '5.  Catalyst reuse cycles — cost amortised accordingly. Confirm with process team.',
+      '6.  Intermediate costs from earlier stages rolled into subsequent stages as input cost.',
+      '7.  Purified water cost represents utility / processing cost allocated by engineering.',
+      '8.  All costs in INR unless marked as imported and converted using exchange rate above.',
+    ];
+    assumptions.forEach((text,i)=>{
+      const row=curRow++;
+      ws.getRow(row).height=15;
+      ws.mergeCells(row,1,row,17);
+      const c=ws.getCell(row,1);
+      c.value=text; c.font=fnt({size:9});
+      c.fill=fillSolid(i%2===0?C.LIGHT_GREY:'FFFFFFFF'); c.border=bdr(); c.alignment=aln('left');
+    });
+
+    // ══ SHEET 2 – Variance Analysis ════════════════════════════════════
+    const ws2 = wb.addWorksheet('Variance Analysis',{properties:{tabColor:{argb:C.AMBER}}});
+    ws2.views=[{state:'frozen',xSplit:0,ySplit:3,activeCell:'A4'}];
+    [6,28,14,14,14,14,14,14,16,16,16,12,30].forEach((w,i)=>ws2.getColumn(i+1).width=w);
+
+    ws2.getRow(1).height=28;
+    ws2.mergeCells(1,1,1,13);
+    const t2=ws2.getCell(1,1);
+    t2.value='RAW MATERIAL COST – STANDARD vs ACTUAL VARIANCE ANALYSIS';
+    t2.font=fnt({bold:true,size:14,color:C.WHITE}); t2.fill=fillSolid(C.DARK_BLUE); t2.alignment=aln('center'); t2.border=bdr();
+
+    ws2.getRow(2).height=14;
+    ws2.mergeCells(2,1,2,13);
+    const t2b=ws2.getCell(2,1);
+    t2b.value=`Product: ${productName}     |     Batch No.: [Batch No.]     |     Period: [Month / Quarter / Year]`;
+    t2b.font=fnt({size:9,color:C.WHITE}); t2b.fill=fillSolid(C.MED_BLUE); t2b.alignment=aln('center'); t2b.border=bdr();
+
+    const vaHdrs=['S.No.','Material Name','Std Qty\n(kg/L)','Actual Qty\n(kg/L)','Qty Variance\n(kg/L)',
+      'Std Rate\n(₹)','Actual Rate\n(₹)','Rate Variance\n(₹)','Std Cost\n(₹)','Actual Cost\n(₹)',
+      'Total Variance\n(₹)','Total Var\n(%)','Remarks'];
+    ws2.getRow(3).height=40;
+    vaHdrs.forEach((h,i)=>{
+      const c=ws2.getCell(3,i+1);
+      c.value=h; c.font=fnt({bold:true,size:9,color:C.WHITE});
+      c.fill=fillSolid(C.DARK_BLUE); c.alignment=aln('center'); c.border=bdr();
+    });
+
+    // Pre-fill variance rows from materials (std = current rates)
+    materials.slice(0,8).forEach((m,i)=>{
+      const row=4+i;
+      ws2.getRow(row).height=18;
+      const altFill=i%2===0?C.LIGHT_BLUE:C.PALE_BLUE;
+      const actualQty = m.yld>0 ? m.theo/m.yld : 0;
+      const vals=[
+        {v:i+1},{v:m.name,al:'left'},
+        {v:actualQty,fmt:NUM2},{v:actualQty,fmt:NUM2},
+        {formula:`D${row}-C${row}`,fmt:NUM2},
+        {v:m.rate,fmt:INR},{v:m.rate,fmt:INR},
+        {formula:`G${row}-F${row}`,fmt:INR},
+        {formula:`C${row}*F${row}`,fmt:INR},
+        {formula:`D${row}*G${row}`,fmt:INR},
+        {formula:`J${row}-I${row}`,fmt:INR},
+        {formula:`IFERROR(K${row}/I${row},0)`,fmt:PCT},
+        {v:'Update with actual batch data',al:'left'},
+      ];
+      vals.forEach((rv,ci)=>{
+        const c=ws2.getCell(row,ci+1);
+        if(rv.formula) c.value={formula:rv.formula};
+        else c.value=rv.v;
+        c.fill=fillSolid(altFill); c.border=bdr(); c.font=fnt({size:9});
+        c.alignment=aln(rv.al||'center');
+        if(rv.fmt) c.numFmt=rv.fmt;
+      });
+    });
+
+    const totRow=4+Math.min(materials.length,8);
+    ws2.getRow(totRow).height=20;
+    ws2.mergeCells(totRow,1,totRow,8);
+    for(let c=1;c<=13;c++){ws2.getCell(totRow,c).fill=fillSolid(C.DARK_BLUE);ws2.getCell(totRow,c).border=bdr();ws2.getCell(totRow,c).font=fnt({bold:true,color:C.WHITE,size:10});}
+    ws2.getCell(totRow,1).value='TOTAL'; ws2.getCell(totRow,1).alignment=aln('right');
+    [[9,'I'],[10,'J'],[11,'K']].forEach(([ci,col])=>{
+      const c=ws2.getCell(totRow,ci); c.value={formula:`SUM(${col}4:${col}${totRow-1})`};
+      c.numFmt=INR; c.alignment=aln('center');
+    });
+    const tv=ws2.getCell(totRow,12); tv.value={formula:`IFERROR(K${totRow}/I${totRow},0)`};
+    tv.numFmt=PCT; tv.alignment=aln('center');
+
+    ws2.getRow(totRow+2).height=14;
+    ws2.mergeCells(totRow+2,1,totRow+2,13);
+    const leg=ws2.getCell(totRow+2,1);
+    leg.value='NOTE: Std Qty = Actual Qty Required from RMC Sheet. Update Actual Qty and Actual Rate columns with real batch data.';
+    leg.font=fnt({size:8,italic:true}); leg.fill=fillSolid(C.LIGHT_GREY); leg.border=bdr(); leg.alignment=aln('left');
+
+    // ══ SHEET 3 – Stage Summary ════════════════════════════════════════
+    const ws3 = wb.addWorksheet('Stage Summary',{properties:{tabColor:{argb:C.GREEN_TAB}}});
+    ws3.views=[{state:'frozen',xSplit:0,ySplit:3,activeCell:'A4'}];
+    [22,32,18,18,18,12,12,12,18].forEach((w,i)=>ws3.getColumn(i+1).width=w);
+
+    ws3.getRow(1).height=28;
+    ws3.mergeCells(1,1,1,9);
+    const t3=ws3.getCell(1,1);
+    t3.value='STAGE-WISE RAW MATERIAL COST SUMMARY';
+    t3.font=fnt({bold:true,size:14,color:C.WHITE}); t3.fill=fillSolid(C.DARK_BLUE); t3.alignment=aln('center'); t3.border=bdr();
+    ws3.getRow(2).height=14;
+    ws3.mergeCells(2,1,2,9);
+    const t3b=ws3.getCell(2,1);
+    t3b.value=`Product: ${productName}     |     BOM Ref: ${bomRef}     |     Effective Date: ${fmtDate(effDate)}`;
+    t3b.font=fnt({size:9,color:C.WHITE}); t3b.fill=fillSolid(C.MED_BLUE); t3b.alignment=aln('center'); t3b.border=bdr();
+
+    const ssHdrs=['Stage','Key Raw Materials\n(Main Inputs)','Gross RM Cost\n(₹)','Recovery Credits\n(₹)',
+      'Net RM Cost\n(₹)','Theoretical\nYield (%)','Actual\nYield (%)','Output Qty\n(kg)','Cost per kg\nof Output (₹/kg)'];
+    ws3.getRow(3).height=40;
+    ssHdrs.forEach((h,i)=>{
+      const c=ws3.getCell(3,i+1);
+      c.value=h; c.font=fnt({bold:true,size:9,color:C.WHITE});
+      c.fill=fillSolid(C.DARK_BLUE); c.alignment=aln('center'); c.border=bdr();
+    });
+
+    const ssDummy=[
+      ['Stage 1','Populate from batch records',0,0,y1/100,y1/100,0],
+      ['Stage 2','Populate from batch records',0,0,y2/100,y2/100,0],
+      ['Final Stage','Populate from batch records',0,0,y3/100,y3/100,actualOut],
+    ];
+    ssDummy.forEach((d,i)=>{
+      const row=4+i;
+      ws3.getRow(row).height=30;
+      const [stage,mats,gr,cr2,thYld,acYld,outQty]=d;
+      const altFill=i%2===0?C.LIGHT_BLUE:C.PALE_BLUE;
+      const rowVals=[
+        {v:stage},{v:mats,al:'left'},{v:gr,fmt:INR,blue:true},{v:cr2,fmt:INR,blue:true},
+        {formula:`IFERROR(C${row}+D${row},0)`,fmt:INR},
+        {v:thYld,fmt:PCT,blue:true},{v:acYld,fmt:PCT,blue:true},{v:outQty,fmt:NUM2,blue:true},
+        {formula:`IFERROR(E${row}/H${row},0)`,fmt:INR},
+      ];
+      rowVals.forEach((rv,ci)=>{
+        const c=ws3.getCell(row,ci+1);
+        if(rv.formula) c.value={formula:rv.formula};
+        else c.value=rv.v;
+        c.fill=fillSolid(altFill); c.border=bdr();
+        c.font=fnt({size:9,color:rv.blue?'FF0000FF':'FF000000'});
+        c.alignment=(ci===1)?aln('left'):aln('center');
+        if(rv.fmt) c.numFmt=rv.fmt;
+      });
+    });
+
+    const t3Row=7;
+    ws3.getRow(t3Row).height=22;
+    const t3Vals=[
+      {v:'TOTAL / FINAL API'},{v:'All Stages Combined',al:'left'},
+      {formula:'SUM(C4:C6)',fmt:INR},{formula:'SUM(D4:D6)',fmt:INR},
+      {formula:'SUM(E4:E6)',fmt:INR},
+      {formula:'F4*F5*F6',fmt:PCT},{formula:'G4*G5*G6',fmt:PCT},
+      {v:actualOut,fmt:NUM2},
+      {formula:`IFERROR(E${t3Row}/H${t3Row},0)`,fmt:INR},
+    ];
+    t3Vals.forEach((rv,ci)=>{
+      const c=ws3.getCell(t3Row,ci+1);
+      if(rv.formula) c.value={formula:rv.formula};
+      else if(rv.v!==undefined) c.value=rv.v;
+      c.fill=fillSolid(C.GREEN); c.border=bdr();
+      c.font=fnt({bold:true,size:10,color:C.WHITE});
+      c.alignment=(ci===1)?aln('left'):aln('center');
+      if(rv.fmt) c.numFmt=rv.fmt;
+    });
+
+    ws3.getRow(9).height=15;
+    ws3.mergeCells(9,1,9,9);
+    const note=ws3.getCell(9,1);
+    note.value='NOTE: Populate Gross RM Cost and Recovery Credits per stage from validated batch records. Yields and output quantities are pre-filled from the RMC Sheet.';
+    note.font=fnt({size:8,italic:true}); note.fill=fillSolid(C.LIGHT_GREY); note.border=bdr(); note.alignment=aln('left');
+
+    // ── Download ─────────────────────────────────────────────────────
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const safeName = productName.replace(/[^a-zA-Z0-9_\-]/g,'_');
+    a.href = url;
+    a.download = `RMC_${safeName}_${new Date().toISOString().slice(0,10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast();
+  } catch(err) {
+    alert('Error generating Excel: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled=false; spin.style.display='none';
+  }
+}
+
+function showToast() {
+  const t=document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Initialise
+// ══════════════════════════════════════════════════════════════════════════════
+DEFAULT_MATERIALS.forEach(d => addMaterialRow(d));
+DEFAULT_CREDITS.forEach(d => addCreditRow(d));
+
+// Set today's date defaults
+const today = new Date().toISOString().slice(0,10);
+document.getElementById('effectiveDate').value = today;
+document.getElementById('priceDate').value = today;
+
+recalc();
+</script>
+</body>
+</html>
